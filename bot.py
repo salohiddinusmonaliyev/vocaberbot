@@ -13,7 +13,9 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
-START = range(4)
+START, MEMORIZE = range(2)
+
+words = (requests.get("http://127.0.0.1:8000/word/").json())
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [
@@ -25,26 +27,60 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ]
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    if update.message:
+        await update.message.reply_text("Quyidagilarni birini tanlang.", reply_markup=reply_markup)
+    elif update.callback_query and update.callback_query.message:
+        await context.bot.deleteMessage(chat_id=update.callback_query.from_user.id, message_id=next_word_message.id)
+        await update.callback_query.message.reply_text("Quyidagilarni birini tanlang.", reply_markup=reply_markup)
+    else:
+        logger.error("Cannot send message: Both update.message and update.callback_query.message are None.")
 
-    await update.message.reply_text("Quyidagilarni birini tanlang.", reply_markup=reply_markup)
     return START
 
 async def memorize(update: Update, context):
-    words = (requests.get("http://127.0.0.1:8000/words/").json())
-    selected_word = random.choice(words)
-    await update.message.reply_html(text=f"{selected_word["word"]}\n{selected_word["definition"]}")
+    global words
+    if not words:
+        words = (requests.get("http://127.0.0.1:8000/word/").json())
+    words1 = []
+    users = requests.get("http://127.0.0.1:8000/telegram-users/").json()
+    for user in users:
+        if user["telegram_id"]==str(update.effective_user.id):
+            user_id = user["id"]
+    for i in words:
+        if i["user"] == user_id:
+            words1.append(i)
+    selected_word = random.choice(words1)
+    keyboard = [
+        [InlineKeyboardButton("➡️ Keyingi so'z", callback_data="next_word")],
+        [InlineKeyboardButton("🛑 Tugatish", callback_data="stop")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    global next_word_message
+    word = selected_word['word']
+    definition = selected_word['definition']
+    words.remove(selected_word)
+    next_word_message = await context.bot.send_message(chat_id=update.effective_user.id, text=f"{word.title()}\n👉 {definition}", reply_markup=reply_markup)
+
+    return MEMORIZE
+    
+async def next_word(update: Update, context):
+    query = update.callback_query
+    global next_word_message
+    await context.bot.deleteMessage(chat_id=query.from_user.id, message_id=next_word_message.id)
+    await query.answer()
+    
+    await memorize(update, context)
 
 async def test(update: Update, context):
-    words = (requests.get("http://127.0.0.1:8000/words/").json())
-    print(words)
+    words = (requests.get("http://127.0.0.1:8000/word/").json())
     selected_word = random.choice(words)
-    print(selected_word["word"])
     await update.message.reply_html(text=f"{selected_word["word"]}\nBu so'zni bilasizmi?")
-    await update.message.reply_html(text="Topshirish")
+    return START
 
 async def add(update: Update, context):
     query = update.callback_query
     await update.message.reply_html(text="So'z qo'shish")
+    return START
 
 async def organizer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = update.message.text
@@ -55,16 +91,23 @@ async def organizer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     elif text == "➕ So'z qo'shish":
         return await add(update, context)
 
-
 def main() -> None:
     application = Application.builder().token("6756942822:AAF2rdWfH-9qrqQHsFb4fkQuD66RTsjSwd8").build()
 
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
+            CommandHandler("again", memorize),
+            
         ],
         states={
             START: [MessageHandler(filters.TEXT, organizer)],
+            MEMORIZE: [
+                MessageHandler(filters.TEXT, organizer),
+                CallbackQueryHandler(next_word, pattern='^next_word$'),
+                CallbackQueryHandler(start, pattern="^stop$")
+            ],
+
         },
         fallbacks=[],
     )
