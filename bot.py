@@ -116,6 +116,8 @@ async def organizer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return await memorize(update, context)
     elif text == "📝 Topshirish":
         return await test(update, context)
+    elif text=="📄 Natijalar":
+        await update.message.reply_html("Natijalar")
     elif text == "➕ So'z qo'shish":
         cancel_btn = InlineKeyboardMarkup([
         [InlineKeyboardButton("➡️ Bekor qilish", callback_data="cancel")],
