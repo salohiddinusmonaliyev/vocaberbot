@@ -3,6 +3,7 @@ import random
 
 from telegram import KeyboardButton, ReplyKeyboardMarkup, Update, WebAppInfo, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes, CallbackQueryHandler
+# from telegram import ParseMode
 
 import requests
 
@@ -22,10 +23,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         [
             KeyboardButton("💪 Yodlash"),
             KeyboardButton("📝 Topshirish"),
+            KeyboardButton("➕ So'z qo'shish"),
         ],
         [
             KeyboardButton("📄 Natijalar"),
-            KeyboardButton("➕ So'z qo'shish"),
+            KeyboardButton("📃 So'zlar ro'yhati"),
          ],
     ]
 
@@ -62,7 +64,7 @@ async def memorize(update: Update, context):
     word = selected_word['word']
     definition = selected_word['definition']
     words.remove(selected_word)
-    next_word_message = await context.bot.send_message(chat_id=update.effective_user.id, text=f"{word.title()}\n👉 {definition}", reply_markup=reply_markup)
+    next_word_message = await context.bot.send_message(chat_id=update.effective_user.id, text=f"<b>{word.title()}</b>\n👉 {definition}", reply_markup=reply_markup, parse_mode='HTML')
 
     return MEMORIZE
     
@@ -83,7 +85,11 @@ async def test(update: Update, context):
 async def add_word(update: Update, context):
     added_word = update.message.text
     context.chat_data['added_word'] = added_word
-    await update.message.reply_html(text="So'z uchun <b>definition</b> yuboring.")
+
+    cancel_btn = InlineKeyboardMarkup([
+        [InlineKeyboardButton("➡️ Bekor qilish", callback_data="cancel")],
+    ])
+    await update.message.reply_html(text="So'z uchun <b>definition</b> yuboring.", reply_markup=cancel_btn)
     return ADD_DEFINITION
 
 async def add_definition(update: Update, context):
@@ -99,19 +105,39 @@ async def add_definition(update: Update, context):
         "user": user_id,
     }
     order_response = requests.post(url="http://127.0.0.1:8000/word/", json=json_data)
-    print(order_response.json())
     await update.message.reply_html("🎉 So'z qo'shildi")
     return ConversationHandler.END
 
 async def organizer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = update.message.text
     if text == "💪 Yodlash":
+        await context.bot.send_message(chat_id=update.effective_user.id, text="Boshqa so'zga o'tish uchun <b>\"➡️ Keyingi so'z\"</b> tugmasini bosing.", reply_markup=ReplyKeyboardRemove(), parse_mode='HTML')
+
         return await memorize(update, context)
     elif text == "📝 Topshirish":
         return await test(update, context)
     elif text == "➕ So'z qo'shish":
-        await update.message.reply_html("So'zni yuboring")
+        cancel_btn = InlineKeyboardMarkup([
+        [InlineKeyboardButton("➡️ Bekor qilish", callback_data="cancel")],
+    ])
+        await update.message.reply_html("So'zni yuboring", reply_markup=cancel_btn)
         return ADD_WORD
+    elif text =="📃 So'zlar ro'yhati":
+        words = (requests.get("http://127.0.0.1:8000/word/").json())
+        words1 = []
+        users = requests.get("http://127.0.0.1:8000/telegram-users/").json()
+        for user in users:
+            if user["telegram_id"]==str(update.effective_user.id):
+                user_id = user["id"]
+        for i in words:
+            if i["user"] == user_id:
+                words1.append(i)
+        formatted_text = "\n\n".join([f"<b>{item['word'].capitalize()}</b>\n👉 {item['definition']}" for item in words1])
+        await update.message.reply_html(formatted_text)
+
+async def cancel(update, context):
+    await update.callback_query.message.reply_text("Bekor qilindi")
+    return START
 
 def main() -> None:
     application = Application.builder().token("6756942822:AAF2rdWfH-9qrqQHsFb4fkQuD66RTsjSwd8").build()
@@ -120,7 +146,6 @@ def main() -> None:
         entry_points=[
             CommandHandler("start", start),
             CommandHandler("again", memorize),
-            
         ],
         states={
             START: [MessageHandler(filters.TEXT, organizer)],
@@ -129,8 +154,10 @@ def main() -> None:
                 CallbackQueryHandler(next_word, pattern='^next_word$'),
                 CallbackQueryHandler(start, pattern="^stop$")
             ],
-            ADD_WORD: [MessageHandler(filters.TEXT, add_word)],
-            ADD_DEFINITION: [MessageHandler(filters.TEXT, add_definition)],
+            ADD_WORD: [MessageHandler(filters.TEXT, add_word),
+                       CallbackQueryHandler(cancel, pattern='^cancel$'),],
+            ADD_DEFINITION: [MessageHandler(filters.TEXT, add_definition),
+                             CallbackQueryHandler(cancel, pattern='^cancel$'),],
 
 
         },
