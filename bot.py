@@ -13,7 +13,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
-START, MEMORIZE = range(2)
+START, MEMORIZE, ADD_WORD, ADD_DEFINITION = range(4)
 
 words = (requests.get("http://127.0.0.1:8000/word/").json())
 
@@ -23,7 +23,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             KeyboardButton("💪 Yodlash"),
             KeyboardButton("📝 Topshirish"),
         ],
-        [KeyboardButton("➕ So'z qo'shish")],
+        [
+            KeyboardButton("📄 Natijalar"),
+            KeyboardButton("➕ So'z qo'shish"),
+         ],
     ]
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -77,10 +80,28 @@ async def test(update: Update, context):
     await update.message.reply_html(text=f"{selected_word["word"]}\nBu so'zni bilasizmi?")
     return START
 
-async def add(update: Update, context):
-    query = update.callback_query
-    await update.message.reply_html(text="So'z qo'shish")
-    return START
+async def add_word(update: Update, context):
+    added_word = update.message.text
+    context.chat_data['added_word'] = added_word
+    await update.message.reply_html(text="So'z uchun <b>definition</b> yuboring.")
+    return ADD_DEFINITION
+
+async def add_definition(update: Update, context):
+    definition = update.message.text
+    added_word = context.chat_data.get('added_word')
+    users = requests.get("http://127.0.0.1:8000/telegram-users/").json()
+    for user in users:
+        if user["telegram_id"]==str(update.effective_user.id):
+            user_id = user["id"]
+    json_data = {
+        "word": added_word,
+        "definition": definition,
+        "user": user_id,
+    }
+    order_response = requests.post(url="http://127.0.0.1:8000/word/", json=json_data)
+    print(order_response.json())
+    await update.message.reply_html("🎉 So'z qo'shildi")
+    return ConversationHandler.END
 
 async def organizer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = update.message.text
@@ -89,7 +110,8 @@ async def organizer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     elif text == "📝 Topshirish":
         return await test(update, context)
     elif text == "➕ So'z qo'shish":
-        return await add(update, context)
+        await update.message.reply_html("So'zni yuboring")
+        return ADD_WORD
 
 def main() -> None:
     application = Application.builder().token("6756942822:AAF2rdWfH-9qrqQHsFb4fkQuD66RTsjSwd8").build()
@@ -107,6 +129,9 @@ def main() -> None:
                 CallbackQueryHandler(next_word, pattern='^next_word$'),
                 CallbackQueryHandler(start, pattern="^stop$")
             ],
+            ADD_WORD: [MessageHandler(filters.TEXT, add_word)],
+            ADD_DEFINITION: [MessageHandler(filters.TEXT, add_definition)],
+
 
         },
         fallbacks=[],
