@@ -14,3 +14,12 @@ class Word(models.Model):
 
     def __str__(self):
         return self.word
+
+class Test(models.Model):
+    user = models.ForeignKey(TelegramUser, on_delete=models.CASCADE)
+    datetime = models.DateTimeField()
+
+class TestItem(models.Model):
+    test = models.ForeignKey(Test, on_delete=models.CASCADE)
+    word = models.ForeignKey(Word, on_delete=models.CASCADE)
+    status = models.BooleanField()
