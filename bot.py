@@ -3,7 +3,6 @@ import random
 
 from telegram import KeyboardButton, ReplyKeyboardMarkup, Update, WebAppInfo, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes, CallbackQueryHandler
-# from telegram import ParseMode
 
 import requests
 
@@ -14,7 +13,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
-START, MEMORIZE, ADD_WORD, ADD_DEFINITION = range(4)
+START, MEMORIZE, TEST, ADD_WORD, ADD_DEFINITION = range(4)
 
 words = (requests.get("http://127.0.0.1:8000/word/").json())
 
@@ -23,10 +22,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         [
             KeyboardButton("💪 Yodlash"),
             KeyboardButton("📝 Topshirish"),
-            KeyboardButton("➕ So'z qo'shish"),
         ],
         [
-            KeyboardButton("📄 Natijalar"),
+            KeyboardButton("➕ So'z qo'shish"),
             KeyboardButton("📃 So'zlar ro'yhati"),
          ],
     ]
@@ -67,20 +65,35 @@ async def memorize(update: Update, context):
     next_word_message = await context.bot.send_message(chat_id=update.effective_user.id, text=f"<b>{word.title()}</b>\n👉 {definition}", reply_markup=reply_markup, parse_mode='HTML')
 
     return MEMORIZE
-    
+
 async def next_word(update: Update, context):
     query = update.callback_query
     global next_word_message
     await context.bot.deleteMessage(chat_id=query.from_user.id, message_id=next_word_message.id)
     await query.answer()
-    
+
     await memorize(update, context)
 
 async def test(update: Update, context):
     words = (requests.get("http://127.0.0.1:8000/word/").json())
     selected_word = random.choice(words)
-    await update.message.reply_html(text=f"{selected_word["word"]}\nBu so'zni bilasizmi?")
-    return START
+    keyboard = [
+        [InlineKeyboardButton("Ha", callback_data="next_word_test"),
+         InlineKeyboardButton("Yo'q", callback_data="next_word_test")],
+        [InlineKeyboardButton("🛑 Tugatish", callback_data="stop")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    global next_word_message_test
+    next_word_message_test = await update.message.reply_html(text=f"{selected_word["word"]}\nBu so'zni bilasizmi?", reply_markup=reply_markup)
+    return TEST
+
+async def next_word_test(update: Update, context):
+    query = update.callback_query
+    global next_word_message_test
+    await context.bot.deleteMessage(chat_id=query.from_user.id, message_id=next_word_message_test.id)
+    await query.answer()
+
+    await test(update, context)
 
 async def add_word(update: Update, context):
     added_word = update.message.text
@@ -116,8 +129,6 @@ async def organizer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return await memorize(update, context)
     elif text == "📝 Topshirish":
         return await test(update, context)
-    elif text=="📄 Natijalar":
-        await update.message.reply_html("Natijalar")
     elif text == "➕ So'z qo'shish":
         cancel_btn = InlineKeyboardMarkup([
         [InlineKeyboardButton("➡️ Bekor qilish", callback_data="cancel")],
@@ -156,6 +167,11 @@ def main() -> None:
                 CallbackQueryHandler(next_word, pattern='^next_word$'),
                 CallbackQueryHandler(start, pattern="^stop$")
             ],
+            TEST: [
+                MessageHandler(filters.TEXT, organizer),
+                CallbackQueryHandler(next_word_test, pattern='^next_word_test$'),
+                CallbackQueryHandler(start, pattern="^stop$")
+            ]
             ADD_WORD: [MessageHandler(filters.TEXT, add_word),
                        CallbackQueryHandler(cancel, pattern='^cancel$'),],
             ADD_DEFINITION: [MessageHandler(filters.TEXT, add_definition),

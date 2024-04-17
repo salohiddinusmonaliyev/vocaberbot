@@ -15,13 +15,3 @@ class WordSerializer(serializers.ModelSerializer):
     class Meta:
         model = Word
         fields = '__all__'
-
-class TestSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Word
-        fields = '__all__'
-
-class TestItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Word
-        fields = '__all__'
