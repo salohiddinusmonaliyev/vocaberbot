@@ -13,7 +13,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
-START, MEMORIZE, TEST, ADD_WORD, ADD_DEFINITION = range(4)
+START, MEMORIZE, TEST, ADD_WORD, ADD_DEFINITION = range(5)
 
 words = (requests.get("http://127.0.0.1:8000/word/").json())
 
@@ -33,7 +33,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message:
         await update.message.reply_text("Quyidagilarni birini tanlang.", reply_markup=reply_markup)
     elif update.callback_query and update.callback_query.message:
-        await context.bot.deleteMessage(chat_id=update.callback_query.from_user.id, message_id=next_word_message.id)
         await update.callback_query.message.reply_text("Quyidagilarni birini tanlang.", reply_markup=reply_markup)
     else:
         logger.error("Cannot send message: Both update.message and update.callback_query.message are None.")
@@ -84,7 +83,14 @@ async def test(update: Update, context):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     global next_word_message_test
-    next_word_message_test = await update.message.reply_html(text=f"{selected_word["word"]}\nBu so'zni bilasizmi?", reply_markup=reply_markup)
+    if update.message:
+        next_word_message_test = await update.message.reply_html(text=f"{selected_word["word"]}\nBu so'zni bilasizmi?", reply_markup=reply_markup)
+
+    elif update.callback_query and update.callback_query.message:
+        next_word_message_test = await update.callback_query.message.reply_html(text=f"{selected_word["word"]}\nBu so'zni bilasizmi?", reply_markup=reply_markup)
+    else:
+        logger.error("Cannot send message: Both update.message and update.callback_query.message are None.")
+
     return TEST
 
 async def next_word_test(update: Update, context):
@@ -171,7 +177,7 @@ def main() -> None:
                 MessageHandler(filters.TEXT, organizer),
                 CallbackQueryHandler(next_word_test, pattern='^next_word_test$'),
                 CallbackQueryHandler(start, pattern="^stop$")
-            ]
+            ],
             ADD_WORD: [MessageHandler(filters.TEXT, add_word),
                        CallbackQueryHandler(cancel, pattern='^cancel$'),],
             ADD_DEFINITION: [MessageHandler(filters.TEXT, add_definition),
