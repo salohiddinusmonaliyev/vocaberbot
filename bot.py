@@ -13,9 +13,11 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
+URL = "http://127.0.0.1:8000"
+
 START, MEMORIZE, TEST, ADD_WORD, ADD_DEFINITION = range(5)
 
-words = (requests.get("http://127.0.0.1:8000/word/").json())
+words = (requests.get(f"{URL}/word/").json())
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [
@@ -42,9 +44,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def memorize(update: Update, context):
     global words
     if not words:
-        words = (requests.get("http://127.0.0.1:8000/word/").json())
+        words = (requests.get(f"{URL}/word/").json())
     words1 = []
-    users = requests.get("http://127.0.0.1:8000/telegram-users/").json()
+    users = requests.get(f"{URL}/telegram-users/").json()
     for user in users:
         if user["telegram_id"]==str(update.effective_user.id):
             user_id = user["id"]
@@ -74,7 +76,7 @@ async def next_word(update: Update, context):
     await memorize(update, context)
 
 async def test(update: Update, context):
-    words = (requests.get("http://127.0.0.1:8000/word/").json())
+    words = (requests.get(f"{URL}/word/").json())
     keyboard = [
         [InlineKeyboardButton("🫣 Javobni ko'rsatish", callback_data="show_answer")],
         [InlineKeyboardButton("🛑 Tugatish", callback_data="stop")]
@@ -128,7 +130,7 @@ async def add_word(update: Update, context):
 async def add_definition(update: Update, context):
     definition = update.message.text
     added_word = context.chat_data.get('added_word')
-    users = requests.get("http://127.0.0.1:8000/telegram-users/").json()
+    users = requests.get(f"{URL}/telegram-users/").json()
     for user in users:
         if user["telegram_id"]==str(update.effective_user.id):
             user_id = user["id"]
@@ -137,7 +139,7 @@ async def add_definition(update: Update, context):
         "definition": definition,
         "user": user_id,
     }
-    order_response = requests.post(url="http://127.0.0.1:8000/word/", json=json_data)
+    order_response = requests.post(url=f"{URL}/word/", json=json_data)
     await update.message.reply_html("🎉 So'z qo'shildi")
     return ConversationHandler.END
 
@@ -160,9 +162,9 @@ async def organizer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_html("So'zni yuboring", reply_markup=cancel_btn)
         return ADD_WORD
     elif text =="📃 So'zlar ro'yhati":
-        words = (requests.get("http://127.0.0.1:8000/word/").json())
+        words = (requests.get(f"{URL}/word/").json())
         words1 = []
-        users = requests.get("http://127.0.0.1:8000/telegram-users/").json()
+        users = requests.get(f"{URL}/telegram-users/").json()
         for user in users:
             if user["telegram_id"]==str(update.effective_user.id):
                 user_id = user["id"]
