@@ -59,17 +59,18 @@ async def memorize(update: Update, context):
         [InlineKeyboardButton("🛑 Tugatish", callback_data="stop")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    global next_word_message
     word = selected_word['word']
     definition = selected_word['definition']
     words.remove(selected_word)
     next_word_message = await context.bot.send_message(chat_id=update.effective_user.id, text=f"<b>{word.title()}</b>\n👉 {definition}", reply_markup=reply_markup, parse_mode='HTML')
+    context.user_data["next_word_message"] = next_word_message
+
 
     return MEMORIZE
 
 async def next_word(update: Update, context):
     query = update.callback_query
-    global next_word_message
+    next_word_message = context.user_data.get("next_word_message")
     await context.bot.deleteMessage(chat_id=query.from_user.id, message_id=next_word_message.id)
     await query.answer()
 
