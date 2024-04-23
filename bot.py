@@ -75,31 +75,45 @@ async def next_word(update: Update, context):
 
 async def test(update: Update, context):
     words = (requests.get("http://127.0.0.1:8000/word/").json())
-    selected_word = random.choice(words)
     keyboard = [
-        [InlineKeyboardButton("Ha", callback_data="next_word_test"),
-         InlineKeyboardButton("Yo'q", callback_data="next_word_test")],
+        [InlineKeyboardButton("🫣 Javobni ko'rsatish", callback_data="show_answer")],
         [InlineKeyboardButton("🛑 Tugatish", callback_data="stop")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    global next_word_message_test
+    global next_word_message
+    selected_word = random.choice(words)
+    context.user_data["selected_word"] = selected_word
     if update.message:
-        next_word_message_test = await update.message.reply_html(text=f"{selected_word["word"]}\nBu so'zni bilasizmi?", reply_markup=reply_markup)
-
+        next_word_message = await update.message.reply_html(text=f"<b>{selected_word["word"]}</b>", reply_markup=reply_markup)
     elif update.callback_query and update.callback_query.message:
-        next_word_message_test = await update.callback_query.message.reply_html(text=f"{selected_word["word"]}\nBu so'zni bilasizmi?", reply_markup=reply_markup)
+        next_word_message = await update.callback_query.message.reply_html(text=f"<b>{selected_word["word"]}</b>", reply_markup=reply_markup)
     else:
         logger.error("Cannot send message: Both update.message and update.callback_query.message are None.")
 
     return TEST
 
+async def show_answer(update: Update, context):
+    query = update.callback_query
+    selected_word = context.user_data.get('selected_word')
+    button = [
+        [InlineKeyboardButton("➡️ Keyingi so'z", callback_data="next_word")]
+    ]
+    await context.bot.edit_message_text(chat_id=query.from_user.id, message_id=next_word_message.id, text=f"<b>{selected_word['word']}</b>\n\n<i>👉 {selected_word['definition']}</i>", parse_mode="HTML", reply_markup=InlineKeyboardMarkup(button))
+
 async def next_word_test(update: Update, context):
     query = update.callback_query
-    global next_word_message_test
-    await context.bot.deleteMessage(chat_id=query.from_user.id, message_id=next_word_message_test.id)
+    global next_word_message
+    await context.bot.deleteMessage(chat_id=query.from_user.id, message_id=next_word_message.id)
     await query.answer()
 
     await test(update, context)
+
+async def stop(update: Update, context):
+    query = update.callback_query
+    global next_word_message
+    await context.bot.deleteMessage(chat_id=query.from_user.id, message_id=next_word_message.id)
+    await query.answer()
+    return await start(update, context)
 
 async def add_word(update: Update, context):
     added_word = update.message.text
@@ -134,6 +148,7 @@ async def organizer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         return await memorize(update, context)
     elif text == "📝 Topshirish":
+        await context.bot.send_message(chat_id=update.effective_user.id, text="Javobni ko'rish va keyingi so'zga o'tish uchun <b>\"🫣 Javobni ko'rsatish\"</b> tugmasini bosing.", reply_markup=ReplyKeyboardRemove(), parse_mode='HTML')
         return await test(update, context)
     elif text == "➕ So'z qo'shish":
         cancel_btn = InlineKeyboardMarkup([
@@ -171,13 +186,15 @@ def main() -> None:
             MEMORIZE: [
                 MessageHandler(filters.TEXT, organizer),
                 CallbackQueryHandler(next_word, pattern='^next_word$'),
-                CallbackQueryHandler(start, pattern="^stop$")
+                CallbackQueryHandler(stop, pattern="^stop$")
             ],
             TEST: [
                 MessageHandler(filters.TEXT, organizer),
-                CallbackQueryHandler(next_word_test, pattern='^next_word_test$'),
-                CallbackQueryHandler(start, pattern="^stop$")
+                CallbackQueryHandler(show_answer, pattern='^show_answer$'),
+                CallbackQueryHandler(next_word_test, pattern='^next_word$'),
+                CallbackQueryHandler(stop, pattern="^stop$")
             ],
+
             ADD_WORD: [MessageHandler(filters.TEXT, add_word),
                        CallbackQueryHandler(cancel, pattern='^cancel$'),],
             ADD_DEFINITION: [MessageHandler(filters.TEXT, add_definition),
