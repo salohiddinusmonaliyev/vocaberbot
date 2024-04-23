@@ -141,6 +141,9 @@ async def add_definition(update: Update, context):
     await update.message.reply_html("🎉 So'z qo'shildi")
     return ConversationHandler.END
 
+async def delete(update: Update, context):
+    await update.message.reply_html("So'zni o'chirish uchun so'z ID sini yuboring", reply_markup=ReplyKeyboardRemove())
+
 async def organizer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = update.message.text
     if text == "💪 Yodlash":
@@ -166,8 +169,18 @@ async def organizer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         for i in words:
             if i["user"] == user_id:
                 words1.append(i)
-        formatted_text = "\n\n".join([f"<b>{item['word'].capitalize()}</b>\n👉 {item['definition']}" for item in words1])
-        await update.message.reply_html(formatted_text)
+        formatted_text = "\n\n".join([f"<b>{item['id']}. {item['word'].capitalize()}</b>\n👉 {item['definition']}" for item in words1])
+
+        await update.message.reply_html(formatted_text, reply_markup=ReplyKeyboardMarkup(
+            keyboard=[
+                    [
+                        KeyboardButton(text="🗑 So'zni o'chirish")
+                    ]
+                ], resize_keyboard=True
+        ))
+
+    elif text == "🗑 So'zni o'chirish":
+        return await delete(update, context)
 
 async def cancel(update, context):
     await update.callback_query.message.reply_text("Bekor qilindi")
