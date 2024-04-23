@@ -30,7 +30,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             KeyboardButton("📃 So'zlar ro'yhati"),
          ],
     ]
-
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     if update.message:
         await update.message.reply_text("Quyidagilarni birini tanlang.", reply_markup=reply_markup)
@@ -72,7 +71,6 @@ async def next_word(update: Update, context):
     next_word_message = context.user_data.get("next_word_message")
     await context.bot.deleteMessage(chat_id=query.from_user.id, message_id=next_word_message.id)
     await query.answer()
-
     await memorize(update, context)
 
 async def test(update: Update, context):
@@ -107,7 +105,6 @@ async def next_word_test(update: Update, context):
     global next_word_message
     await context.bot.deleteMessage(chat_id=query.from_user.id, message_id=next_word_message.id)
     await query.answer()
-
     await test(update, context)
 
 async def stop(update: Update, context):
@@ -120,7 +117,6 @@ async def stop(update: Update, context):
 async def add_word(update: Update, context):
     added_word = update.message.text
     context.chat_data['added_word'] = added_word
-
     cancel_btn = InlineKeyboardMarkup([
         [InlineKeyboardButton("➡️ Bekor qilish", callback_data="cancel")],
     ])
@@ -150,7 +146,6 @@ async def organizer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = update.message.text
     if text == "💪 Yodlash":
         await context.bot.send_message(chat_id=update.effective_user.id, text="Boshqa so'zga o'tish uchun <b>\"➡️ Keyingi so'z\"</b> tugmasini bosing.", reply_markup=ReplyKeyboardRemove(), parse_mode='HTML')
-
         return await memorize(update, context)
     elif text == "📝 Topshirish":
         await context.bot.send_message(chat_id=update.effective_user.id, text="Javobni ko'rish va keyingi so'zga o'tish uchun <b>\"🫣 Javobni ko'rsatish\"</b> tugmasini bosing.", reply_markup=ReplyKeyboardRemove(), parse_mode='HTML')
