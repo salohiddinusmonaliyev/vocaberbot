@@ -14,6 +14,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 URL = "http://127.0.0.1:8000"
+TOKEN = "6756942822:AAF2rdWfH-9qrqQHsFb4fkQuD66RTsjSwd8"
 
 START, MEMORIZE, TEST, ADD_WORD, ADD_DEFINITION = range(5)
 
@@ -184,7 +185,7 @@ async def cancel(update, context):
     return START
 
 def main() -> None:
-    application = Application.builder().token("6756942822:AAF2rdWfH-9qrqQHsFb4fkQuD66RTsjSwd8").build()
+    application = Application.builder().token(TOKEN).build()
 
     conv_handler = ConversationHandler(
         entry_points=[
